@@ -10,6 +10,10 @@ import time
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.control.climate import HeatingLocation
 
+# import logging
+
+# logging.basicConfig(level=logging.DEBUG)
+
 
 def environ_or_required(key):
     """Return default or required argument based on the existence of an environment variable."""
@@ -55,9 +59,12 @@ def main_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
     subparsers.required = True
 
-    _ = subparsers.add_parser("status", help="Get status of vehicle.")
+    _ = subparsers.add_parser("status", help="Get status of all vehicles.")
 
-    _ = subparsers.add_parser("info", help="Get info of vehicle.")
+    _ = subparsers.add_parser("info", help="Get info of all vehicles.")
+
+    smartOS_parser = subparsers.add_parser("smartOS", help="Get smartOS version of one vehicle.")
+    smartOS_parser.add_argument("--vin", help="VIN of vehicle", default=None)
 
     watch_parser = subparsers.add_parser("watch", help="Watch vehicle.")
     watch_parser.add_argument("-i", help="scan intervall", default=60, type=int)
@@ -85,6 +92,8 @@ async def parse_command(args) -> None:
         await get_status(args)
     elif args.command == "info":
         await get_vehicle_information(args)
+    elif args.command == "smartOS":
+        await get_vehicle_smartos(args)
     elif args.command == "watch":
         await watch_car(args)
     elif args.command == "climate":
@@ -113,6 +122,19 @@ async def get_vehicle_information(args) -> None:
         car = await account.get_vehicle_information(vin)
         print(f"VIN: {vin}")
         print(f"{car}")
+
+
+async def get_vehicle_smartos(args) -> None:
+    """Get smartOS version of one vehicle"""
+    account = SmartAccount(args.username, args.password)
+    await account.get_vehicles()
+    if not args.vin:
+        args.vin = list(account.vehicles.keys())[0]
+    await account.get_vehicle_information(args.vin)
+
+    vehicle_ota_info = await account.get_vehicle_ota_info(args.vin)
+    print(f"VIN: {args.vin}")
+    print(f"{vehicle_ota_info}")
 
 
 async def watch_car(args) -> None:

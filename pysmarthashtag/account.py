@@ -3,14 +3,19 @@
 import datetime
 import json
 import logging
+
 from dataclasses import InitVar, dataclass, field
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
-from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL, OTA_SERVER_URL
+from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL, OTA_SERVER_URL, OTA_SERVER_URL_V2
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
+
+# for adding JWT
+import time
+import hashlib
 
 VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
 
@@ -235,6 +240,23 @@ class SmartAccount:
         return data
 
     async def get_vehicle_ota_info(self, vin) -> dict:
+        """Get OTA information about a vehicle, using appropriate version based on VIN."""
+        _LOGGER.debug("Getting ota information for vehicle %s", vin)
+        if vin.startswith("HESY"):
+            return await self.get_vehicle_ota_info_debug(vin)
+        else:
+            return await self.get_vehicle_ota_info_v1(vin)
+
+    async def get_vehicle_ota_info_debug(self, vin) -> dict:
+        """Get information about a vehicle from OTA server."""
+        _LOGGER.info("Looking for token")
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                _LOGGER.info("token %s", client.config.authentication.api_access_token)
+
+        return
+
+    async def get_vehicle_ota_info_v1(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""
         _LOGGER.debug("Getting ota information for vehicle %s", vin)
         data = {}
@@ -255,6 +277,64 @@ class SmartAccount:
                             "accept-encoding": "gzip, deflate, br",
                             "accept-language": "en-US,en;q=0.9",
                         },
+                    )
+                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    json_data = r_car_info.json()
+                    data = {
+                        "target_version": json_data.get("targetVersion"),
+                        "current_version": json_data.get("currentVersion"),
+                    }
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    self.select_active_vehicle(vin)
+                    continue
+                break
+            if retry > 1:
+                raise SmartAuthError("Could not get vehicle information")
+        return data
+
+    async def get_vehicle_ota_info_v2(self, vin) -> dict:
+        """Get information about a vehicle from OTA server."""
+        _LOGGER.debug("Getting ota information for vehicle %s", vin)
+        data = json.dumps({"vinList": [vin]})
+        timestamp = str(int(time.time() * 1000))
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    r_car_info = await client.get(
+                        OTA_SERVER_URL_V2 + "/vehicle/v1/ota/findVersion",
+                        headers={
+                            **utils.generate_default_header_v2(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params={},
+                                method="GET",
+                                url=OTA_SERVER_URL_V2 + "/vehicle/v1/ota/findVersion",
+                                body=data,
+                            )
+                        },
+                        # headers2={
+                        #     "host": "vehicle.vbs.srv.smart.com",
+                        #     "accept": "*/*",
+                        #     "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
+                        #     "connection": "keep-alive",
+                        #     "user-agent": "Hello smart/2.0.3 (iPhone; iOS 26.0; Scale/3.00)",
+                        #     "xs-auth-token": client.config.authentication.api_access_token,
+                        #     "xs-sign-value": "" \
+                        #     "xs-app-ver": "2.0.3",
+                        #     "xs-os": "iOS",
+                        #     "xs-sign-uuid": "xxxxxxxx-xxxx",
+                        #     "xs-sign-timestamp": timestamp,
+                        #     "xs-sign-type": "SHA256",
+                        #     "xs-channel-id": "APP_EU",
+                        #     "content-type": "application/json",
+                        #     "accept-encoding": "gzip, deflate, br",
+                        #     "accept-language": "en-US,en;q=0.9",
+                        # },
+                        data=data,
                     )
                     _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                     json_data = r_car_info.json()
