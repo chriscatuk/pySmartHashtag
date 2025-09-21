@@ -208,7 +208,7 @@ class SmartAccount:
         async with SmartClient(self.config) as client:
             for retry in range(3):
                 try:
-                    r_car_info = await client.get(
+                    r_car_info = await client.post(
                         self.vehicles[vin].base_url
                         + "/remote-control/vehicle/status/soc/"
                         + vin
@@ -219,7 +219,7 @@ class SmartAccount:
                                 client.config.authentication.device_id,
                                 client.config.authentication.api_access_token,
                                 params=params,
-                                method="GET",
+                                method="POST",
                                 url="/remote-control/vehicle/status/soc/" + vin,
                             )
                         },
@@ -243,18 +243,9 @@ class SmartAccount:
         """Get OTA information about a vehicle, using appropriate version based on VIN."""
         _LOGGER.debug("Getting ota information for vehicle %s", vin)
         if vin.startswith("HESY"):
-            return await self.get_vehicle_ota_info_debug(vin)
+            return await self.get_vehicle_ota_info_v2(vin)
         else:
             return await self.get_vehicle_ota_info_v1(vin)
-
-    async def get_vehicle_ota_info_debug(self, vin) -> dict:
-        """Get information about a vehicle from OTA server."""
-        _LOGGER.info("Looking for token")
-        async with SmartClient(self.config) as client:
-            for retry in range(3):
-                _LOGGER.info("token %s", client.config.authentication.api_access_token)
-
-        return
 
     async def get_vehicle_ota_info_v1(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""
@@ -268,7 +259,7 @@ class SmartAccount:
                         headers={
                             "host": "ota.srv.smart.com",
                             "accept": "*/*",
-                            "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
+                            # "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
                             "id-token": client.config.authentication.device_id,
                             "connection": "keep-alive",
                             "user-agent": "Hello%20smart/1 CFNetwork/3826.500.131 Darwin/24.5.0",
@@ -310,33 +301,14 @@ class SmartAccount:
                             **utils.generate_default_header_v2(
                                 client.config.authentication.device_id,
                                 client.config.authentication.api_access_token,
-                                params={},
                                 method="GET",
                                 url=OTA_SERVER_URL_V2 + "/vehicle/v1/ota/findVersion",
                                 body=data,
                             )
                         },
-                        # headers2={
-                        #     "host": "vehicle.vbs.srv.smart.com",
-                        #     "accept": "*/*",
-                        #     "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
-                        #     "connection": "keep-alive",
-                        #     "user-agent": "Hello smart/2.0.3 (iPhone; iOS 26.0; Scale/3.00)",
-                        #     "xs-auth-token": client.config.authentication.api_access_token,
-                        #     "xs-sign-value": "" \
-                        #     "xs-app-ver": "2.0.3",
-                        #     "xs-os": "iOS",
-                        #     "xs-sign-uuid": "xxxxxxxx-xxxx",
-                        #     "xs-sign-timestamp": timestamp,
-                        #     "xs-sign-type": "SHA256",
-                        #     "xs-channel-id": "APP_EU",
-                        #     "content-type": "application/json",
-                        #     "accept-encoding": "gzip, deflate, br",
-                        #     "accept-language": "en-US,en;q=0.9",
-                        # },
                         data=data,
                     )
-                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    _LOGGER.info("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                     json_data = r_car_info.json()
                     data = {
                         "target_version": json_data.get("targetVersion"),
