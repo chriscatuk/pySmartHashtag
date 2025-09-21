@@ -259,7 +259,7 @@ class SmartAccount:
                         headers={
                             "host": "ota.srv.smart.com",
                             "accept": "*/*",
-                            # "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
+                            "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
                             "id-token": client.config.authentication.device_id,
                             "connection": "keep-alive",
                             "user-agent": "Hello%20smart/1 CFNetwork/3826.500.131 Darwin/24.5.0",
@@ -295,13 +295,15 @@ class SmartAccount:
         async with SmartClient(self.config) as client:
             for retry in range(3):
                 try:
-                    r_car_info = await client.get(
+                    _LOGGER.info("Token 1/3 %s", client.config.authentication.api_access_token)
+                    _LOGGER.info("Token 1.5/3 %s", client.config.authentication.access_token)
+                    r_car_info = await client.post(
                         OTA_SERVER_URL_V2 + "/vehicle/v1/ota/findVersion",
                         headers={
                             **utils.generate_default_header_v2(
                                 client.config.authentication.device_id,
                                 client.config.authentication.api_access_token,
-                                method="GET",
+                                method="POST",
                                 url=OTA_SERVER_URL_V2 + "/vehicle/v1/ota/findVersion",
                                 body=data,
                             )

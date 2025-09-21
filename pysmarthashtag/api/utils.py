@@ -79,19 +79,26 @@ def generate_default_header(
 
 def _create_sign_v2(timestamp: str, access_token: str, method: str, url: str, body=None) -> str:
     """Create a signature for the request."""
-    to_sign = timestamp + access_token + (body or "")
+    # Handle None values by converting to empty strings
+    timestamp_str = timestamp if timestamp is not None else ""
+    access_token_str = access_token if access_token is not None else ""
+    body_str = body if body is not None else ""
+
+    to_sign = timestamp_str + access_token_str + body_str
     xs_sign_value = hashlib.sha256(to_sign.encode()).hexdigest()
-    _LOGGER.debug("Signature: %s", xs_sign_value)
+    _LOGGER.info("Signature: %s", xs_sign_value)
+    _LOGGER.info("Token 3/3: %s", access_token)
     return xs_sign_value
 
 
 def generate_default_header_v2(device_id: str, access_token: str, method: str, url: str, body=None) -> dict[str, str]:
     """Generate a header for HTTP requests to the server."""
     timestamp = create_correct_timestamp()
+    _LOGGER.info("Token 2/3: %s", access_token)
     sign = _create_sign_v2(timestamp, access_token, method, url, body)
     header = {
         "accept": "*/*",
-        "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
+        # "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
         "connection": "keep-alive",
         "user-agent": "Hello smart/2.0.3 (iPhone; iOS 26.0; Scale/3.00)",
         "xs-auth-token": access_token,

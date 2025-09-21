@@ -127,10 +127,10 @@ async def get_vehicle_information(args) -> None:
 async def get_vehicle_smartos(args) -> None:
     """Get smartOS version of one vehicle"""
     account = SmartAccount(args.username, args.password)
-    await account.get_vehicles()
-    if not args.vin:
-        args.vin = list(account.vehicles.keys())[0]
-    await account.get_vehicle_information(args.vin)
+    # await account.get_vehicles()
+    # if not args.vin:
+    #     args.vin = list(account.vehicles.keys())[0]
+    # await account.get_vehicle_information(args.vin)
 
     vehicle_ota_info = await account.get_vehicle_ota_info(args.vin)
     print(f"VIN: {args.vin}")
